@@ -1,7 +1,7 @@
 import subprocess
 import importlib
 import requests
-from pathlib import Path
+from googlesearch import search
 
 
 class Tool:
@@ -227,4 +227,73 @@ The user issued the following query:
 Query: {query}
 
 The weather for the user query is: {output}. Write a short summary of the weather. If the temperature appears in the response, show itin Celsius and Fahrenheit.
+"""
+
+class GoogleSearch(Tool):
+    """
+    When the user wants to search information on the web or asks a question
+    that requires up-to-date knowledge.
+    """
+
+    def prompt(self, query) -> str:
+        return f"""
+Given the following user query, extract the key search terms that would be most effective
+for finding relevant information on a search engine like Google.
+
+Create a concise and focused search query that captures the main intent of the user's question.
+Remove any unnecessary words and focus on the key concepts.
+
+Reply only with the optimized search query.
+Do not add any explanation.
+
+User query: {query}
+Optimized search query:
+"""
+
+    def use(self, query, response):
+        optimized_query = response.strip()
+        yield f"Searching Google for: {optimized_query}\n\n"
+        
+        try:
+            # 
+            results = []
+            
+            count = 0
+            for result in search(optimized_query, sleep_interval=2, num_results=7, advanced=True):
+                yield f"{count}. {result.title}\n   {result.url}\n"
+                count += 1
+            
+            return results
+        except Exception as e:
+            yield f"Error performing search: {str(e)}\n"
+            return []
+
+    def conclude(self, query, output):
+        # Check if output is a list (search results)
+        if isinstance(output, list) and len(output) > 0:
+            results_text = "\n".join([f"- {result.title}: {result.url}" for result in output])
+            return f"""
+The user issued the following query:
+
+Query: {query}
+
+Based on this query, I searched Google and found these results:
+
+{results_text}
+
+Using these search results, please provide a comprehensive answer to the user's query.
+Focus on summarizing the most relevant information and citing the sources.
+"""
+        else:
+            # If output is just text (like an error message)
+            return f"""
+The user issued the following query:
+
+Query: {query}
+
+When I attempted to search Google for this query, I encountered the following:
+
+{output}
+
+Please respond appropriately to the user based on this information.
 """
